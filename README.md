@@ -94,7 +94,7 @@ API IBGE.
 
 ------------------------------------------------------------------------
 
-## 🔧 Configuração de Ambiente
+## Configuração de Ambiente
 
 Crie um arquivo **.env** na raiz do projeto com as chaves de API:
 
