@@ -1,101 +1,129 @@
-# Manu - Manual da Vida Adulta
+# Manu --- Manual da Vida Adulta
 
-> [cite_start]Projeto desenvolvido na disciplina **Project Lab** do curso de Ciência da Computação do **Centro Universitário UNIMA (Afya)**[cite: 1, 16].
+Projeto desenvolvido na disciplina **Project Lab** do curso de **Ciência
+da Computação** do **Centro Universitário UNIMA (Afya)**.
 
-![Badge em Desenvolvimento](http://img.shields.io/static/v1?label=STATUS&message=EM%20DESENVOLVIMENTO&color=GREEN&style=for-the-badge)
+![Status](http://img.shields.io/static/v1?label=STATUS&message=EM%20DESENVOLVIMENTO&color=GREEN&style=for-the-badge)
 ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
 ![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
 ![Firebase](https://img.shields.io/badge/firebase-%23039BE5.svg?style=for-the-badge&logo=firebase)
+![Google
+Cloud](https://img.shields.io/badge/Google_Cloud-%234285F4.svg?style=for-the-badge&logo=google-cloud&logoColor=white)
 
-## 📘 Sobre o Projeto
+------------------------------------------------------------------------
 
-A transição para a vida adulta é marcada por desafios burocráticos, financeiros e sociais. [cite_start]O **Manu (Manual da Vida Adulta)** é uma aplicação móvel (SPA) projetada para oferecer suporte interativo e personalizado para jovens que buscam autonomia[cite: 26, 29, 44].
+## Sobre o Projeto
 
-[cite_start]A solução centraliza ferramentas práticas para organização pessoal, reduzindo esquecimentos e erros comuns em processos burocráticos[cite: 30, 32].
+A transição para a vida adulta envolve desafios burocráticos,
+financeiros e sociais.\
+O **Manu (Manual da Vida Adulta)** é um aplicativo desenvolvido para
+apoiar jovens --- especialmente estudantes do ensino médio --- na
+organização de documentos, tarefas e processos essenciais da vida
+adulta.
 
-## ✨ Funcionalidades Principais
+A proposta é centralizar ferramentas práticas em uma única plataforma,
+reduzindo esquecimentos e simplificando rotinas que antes eram complexas
+ou confusas.
 
-O aplicativo está estruturado em torno de áreas de interesse do usuário, oferecendo:
+------------------------------------------------------------------------
 
-* [cite_start]**🆔 Carteira Virtual de Documentos:** Upload, visualização e gestão de documentos (RG, CPF, CNH, CTPS) com integração futura de OCR para extração de dados[cite: 48, 133, 159].
-* [cite_start]**📝 Construtor de Currículos (CurriculoBuilder):** Ferramenta completa com templates (Moderno, Clássico, Criativo, Executivo) e exportação automática para PDF[cite: 72, 73].
-* [cite_start]**🎯 Plano de Ação Gamificado:** Checklists dinâmicos e tarefas passo a passo (ex: "Como tirar o RG", "Alistamento Militar") com sistema de desbloqueio e troféus[cite: 50, 81, 82].
-* [cite_start]**🎓 Recomendações Dinâmicas:** Integração com Google Custom Search para sugerir notícias, vídeos e dicas baseadas nos interesses do usuário e sua localização[cite: 77, 80].
-* [cite_start]**👤 Perfil Inteligente:** Cadastro com preenchimento automático de endereço (ViaCEP) e localização (API IBGE)[cite: 79, 122].
+## Inteligência Artificial e OCR 
 
-## 🚀 Tecnologias Utilizadas
+O Manu utiliza uma pipeline completa que une visão computacional no
+navegador e IA na nuvem para digitalização inteligente de documentos.
 
-[cite_start]O projeto segue uma arquitetura moderna e escalável[cite: 64]:
+### **1. Visão Computacional no Frontend (OpenCV.js)**
 
-* **Frontend:** React.js + Vite
-* **Backend & Database:** Firebase (Authentication, Firestore, Storage, Cloud Functions)
-* **Estilização:** CSS Puro (Variáveis CSS para temas Claro/Escuro/Cinza)
-* **Manipulação de Imagem/PDF:** `react-image-crop`, `@react-pdf/renderer`, `opencv.js` (para scanner de documentos).
-* **APIs Externas:**
-    * Google Custom Search API
-    * ViaCEP API
-    * IBGE API (Estados e Municípios)
+-   Detecção automática das bordas do papel.\
+-   Correção de perspectiva (warp perspective).\
+-   Tratamento da imagem antes do envio para OCR.
 
-## 🛠️ Instalação e Configuração
+### **2. OCR com Google Cloud Vision**
 
-### Pré-requisitos
-* Node.js (v18 ou superior)
-* NPM ou Yarn
-* Conta no Google Firebase
+-   A imagem tratada é enviada ao Firebase Storage.\
+-   Uma Cloud Function aciona a API do Google Cloud Vision.\
+-   Extração de texto altamente precisa.
 
-### Passo a Passo
+### **3. Extração Estruturada (Regex)**
 
-1.  **Clone o repositório:**
-    ```bash
-    git clone [https://github.com/SEU_USUARIO/NOME_DO_REPO.git](https://github.com/SEU_USUARIO/NOME_DO_REPO.git)
-    cd NOME_DO_REPO
-    ```
+Após o OCR, o sistema aplica regras e expressões regulares projetadas
+para documentos brasileiros, identificando:
 
-2.  **Instale as dependências:**
-    ```bash
-    npm install
-    ```
+-   Nome completo\
+-   CPF\
+-   Número do RG\
+-   Datas relevantes
 
-3.  **Configuração de Ambiente (Segurança):**
-    O projeto utiliza variáveis de ambiente para proteger chaves de API. Crie um arquivo `.env` na raiz do projeto e preencha com suas credenciais:
+Os dados são então organizados e armazenados de forma estruturada no
+Firestore.
 
-    ```env
-    # Google Custom Search
-    VITE_GOOGLE_API_KEY=sua_chave_aqui
-    VITE_SEARCH_ENGINE_ID=seu_id_aqui
+------------------------------------------------------------------------
 
-    # Firebase Config
-    VITE_FIREBASE_API_KEY=sua_api_key
-    VITE_FIREBASE_AUTH_DOMAIN=seu_projeto.firebaseapp.com
-    VITE_FIREBASE_PROJECT_ID=seu_projeto_id
-    VITE_FIREBASE_STORAGE_BUCKET=seu_projeto.firebasestorage.app
-    VITE_FIREBASE_MESSAGING_SENDER_ID=seu_sender_id
-    VITE_FIREBASE_APP_ID=seu_app_id
-    VITE_FIREBASE_MEASUREMENT_ID=seu_measurement_id
-    ```
+## Funcionalidades Principais
 
-4.  **Execute o projeto:**
-    ```bash
-    npm run dev
-    ```
+✔ **Carteira Virtual de Documentos**\
+Upload, leitura automatizada, organização e visualização de RG, CPF,
+CNH, CTPS e outros.
 
-## 📱 Layout e UX
+✔ **Construtor de Currículos**\
+Templates dinâmicos (Moderno, Clássico, Criativo, Executivo) com
+exportação instantânea para PDF.
 
-O projeto foi desenhado com foco em **Mobile First**, mas adaptável via CSS responsivo.
-* [cite_start]**Navegação:** Sidebar "Sticky" no Desktop e Menu "Hambúrguer" com Overlay no Mobile[cite: 96, 141].
-* **Temas:** Suporte nativo a temas Claro, Escuro e Cinza, configuráveis pelo usuário.
+✔ **Plano de Ação Gamificado**\
+Tarefas guiadas (ex.: *Como emitir RG*, *Alistamento Militar*, *Primeiro
+Currículo*) com sistema de progresso e troféus.
 
-## 👥 Autores
+✔ **Recomendações Inteligentes**\
+Integração com Google Custom Search para sugerir conteúdos úteis com
+base no perfil do usuário.
 
-[cite_start]Equipe de desenvolvimento do Project Lab [cite: 2-6]:
+✔ **Perfil Inteligente**\
+Preenchimento automático de endereço via ViaCEP e dados regionais via
+API IBGE.
 
-* **Daniel Alexandre Pereira de Abreu**
-* **Gabriel Da Costa Vangasse**
-* **Ivo Lucas Araújo Viveiros De Lima**
-* **Jordana Gabriela Ferreira Costa**
-* **José Gabriel Bonfim Severo Amorim**
+------------------------------------------------------------------------
 
-[cite_start]Orientador: Prof. Icaro Santos Ferreira[cite: 17].
+## Tecnologias Utilizadas
 
+**Frontend:** React + Vite\
+**Backend Serverless:** Firebase Functions (Node.js)\
+**Banco de Dados:** Firestore (NoSQL)\
+**Autenticação:** Firebase Authentication\
+**IA & OCR:** Google Cloud Vision + OpenCV.js\
+**UI:** CSS puro com variáveis globais (Light/Dark/Gray)
 
+------------------------------------------------------------------------
 
+## 🔧 Configuração de Ambiente
+
+Crie um arquivo **.env** na raiz do projeto com as chaves de API:
+
+``` env
+# Google Custom Search & APIs
+VITE_GOOGLE_API_KEY=sua_chave_aqui
+VITE_SEARCH_ENGINE_ID=seu_id_aqui
+
+# Firebase Config
+VITE_FIREBASE_API_KEY=sua_api_key
+VITE_FIREBASE_AUTH_DOMAIN=seu_projeto.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=seu_projeto_id
+VITE_FIREBASE_STORAGE_BUCKET=seu_projeto.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=seu_sender_id
+VITE_FIREBASE_APP_ID=seu_app_id
+```
+
+------------------------------------------------------------------------
+
+## Autores
+
+Equipe de Desenvolvimento --- Project Lab:
+
+-   **Daniel Alexandre Pereira de Abreu**\
+-   **Gabriel Da Costa Vangasse**\
+-   **Ivo Lucas Araújo Viveiros De Lima**\
+-   **Jordana Gabriela Ferreira Costa**\
+-   **José Gabriel Bonfim Severo Amorim**
+
+### Orientação
+
+**Prof. Icaro Santos Ferreira**
