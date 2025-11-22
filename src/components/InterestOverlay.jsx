@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { GOOGLE_API_KEY, SEARCH_ENGINE_ID } from '../config';
 import { staticContent } from '../data/staticContent';
+import { trophyImages } from '../data/trophyData';
 import CurriculoBuilder from './CurriculoBuilder';
 import Tasks from './Tasks'; 
-
 
 const UF_TO_STATE_NAME = {
     'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas',
@@ -15,17 +15,26 @@ const UF_TO_STATE_NAME = {
     'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
 };
 
+const getInterestImage = (interest) => trophyImages[interest] || trophyImages.default;
+
+
 const InicioView = ({ interest }) => {
     const interestData = staticContent[interest] || { title: `Guia sobre ${interest}`, summary: "Informações em breve.", sections: [] };
     return (
-        <div className="overlay-view">
-            <div className="static-content-box">
-                <h3>{interestData.title}</h3>
-                <p className="category-summary">{interestData.summary}</p>
+        <div className="overlay-content-fade">
+            <div className="guide-intro-card">
+                <h4>Sobre esta trilha</h4>
+                <p>{interestData.summary}</p>
+            </div>
+            
+            <div className="guide-sections-grid">
                 {interestData.sections.map((section, index) => (
-                    <div key={index} className="faq-section">
-                        <h4>{section.title}</h4>
-                        <p>{section.content}</p>
+                    <div key={index} className="guide-section-card">
+                        <div className="section-icon"><i className="fas fa-book-open"></i></div>
+                        <div className="section-text">
+                            <h5>{section.title}</h5>
+                            <p>{section.content}</p>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -56,7 +65,7 @@ const RecomendacoesView = ({ interest, profile }) => {
 
             setIsLoading(true);
 
-            const fetchContent = async (queryText, sort = '', num = 8) => {
+            const fetchContent = async (queryText, sort = '', num = 6) => {
                 let url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${SEARCH_ENGINE_ID}&q=${encodeURIComponent(queryText)}&lr=lang_pt&num=${num}`;
                 if (sort) url += `&sort=${sort}`;
                 try {
@@ -65,7 +74,7 @@ const RecomendacoesView = ({ interest, profile }) => {
                     const data = await response.json();
                     return data.items || [];
                 } catch (error) { 
-                    console.error("Erro ao fazer a requisição:", error);
+                    console.error("Erro API:", error);
                     return []; 
                 }
             };
@@ -85,22 +94,16 @@ const RecomendacoesView = ({ interest, profile }) => {
             let newsResults = [];
             if (userStateFullName) {
                 const localNewsQuery = `"${interest}" em "${userStateFullName}" ${trustedSources}`;
-                newsResults = await fetchContent(localNewsQuery, 'date', 8);
+                newsResults = await fetchContent(localNewsQuery, 'date', 6);
             }
             if (!userStateFullName || newsResults.length === 0) {
                 const nationalNewsQuery = `"${interest}" (Brasil OR nacional OR edital) ${trustedSources}`;
-                newsResults = await fetchContent(nationalNewsQuery, 'date', 8);
+                newsResults = await fetchContent(nationalNewsQuery, 'date', 6);
             }
 
             const finalResults = { noticias: newsResults, videos: videosResults, dicas: dicasResults };
             setResults(finalResults);
-
-            const newCacheData = {
-                results: finalResults,
-                timestamp: now
-            };
-            localStorage.setItem(cacheKey, JSON.stringify(newCacheData));
-
+            localStorage.setItem(cacheKey, JSON.stringify({ results: finalResults, timestamp: now }));
             setIsLoading(false);
         };
 
@@ -110,58 +113,55 @@ const RecomendacoesView = ({ interest, profile }) => {
     const getResultImage = (item) => {
         const ogImage = item.pagemap?.metatags?.[0]?.['og:image'];
         if (ogImage && ogImage.startsWith('http')) return ogImage;
-        const cseImage = item.pagemap?.cse_image?.[0]?.src;
-        if (cseImage && cseImage.startsWith('http')) return cseImage;
         const cseThumbnail = item.pagemap?.cse_thumbnail?.[0]?.src;
         if (cseThumbnail && cseThumbnail.startsWith('http')) return cseThumbnail;
-        if (item.displayLink) {
-            return `https://www.google.com/s2/favicons?sz=64&domain=${item.displayLink}`;
-        }
-        return '/avatar-padrao.png';
+        return null; 
     };
 
     const renderContent = () => {
         if (isLoading) return <div className="spinner-container"><div className="spinner"></div></div>;
         const currentResults = results[activeRecTab];
-        if (!currentResults || currentResults.length === 0) return <p>Nenhum conteúdo encontrado para esta seção no momento.</p>;
+        if (!currentResults || currentResults.length === 0) return <div className="empty-state-small">Nenhum conteúdo encontrado.</div>;
         
         return (
-            <div className="articles-grid">
-                {currentResults.map((item, index) => (
-                    <a href={item.link} key={index} target="_blank" rel="noopener noreferrer" className="article-card">
-                        <img 
-                            src={getResultImage(item)} 
-                            alt={item.title} 
-                            className="article-image"
-                            onError={(e) => { e.currentTarget.src = '/avatar-padrao.png'; }}
-                        />
-                        <div className="article-content">
-                            <h5 className="article-title">{item.title}</h5>
-                            <p className="article-description">{item.snippet}</p>
-                            <span className="article-source">{item.displayLink}</span>
-                        </div>
-                    </a>
-                ))}
+            <div className="rec-cards-list">
+                {currentResults.map((item, index) => {
+                    const img = getResultImage(item);
+                    return (
+                        <a href={item.link} key={index} target="_blank" rel="noopener noreferrer" className="rec-card-row">
+                            {img && <div className="rec-card-thumb" style={{backgroundImage: `url(${img})`}}></div>}
+                            <div className="rec-card-body">
+                                <h6>{item.title}</h6>
+                                <p>{item.snippet}</p>
+                                <span className="rec-source">{item.displayLink}</span>
+                            </div>
+                            <div className="rec-card-icon"><i className="fas fa-external-link-alt"></i></div>
+                        </a>
+                    );
+                })}
             </div>
         );
     };
 
     return (
-        <div className="overlay-view">
-            <nav className="recommendations-navbar">
-                <button className={`rec-tab-button ${activeRecTab === 'noticias' ? 'active' : ''}`} onClick={() => setActiveRecTab('noticias')}>Notícias</button>
-                <button className={`rec-tab-button ${activeRecTab === 'videos' ? 'active' : ''}`} onClick={() => setActiveRecTab('videos')}>Vídeos</button>
-                <button className={`rec-tab-button ${activeRecTab === 'dicas' ? 'active' : ''}`} onClick={() => setActiveRecTab('dicas')}>Dicas</button>
-            </nav>
-            <div className="recommendations-content">{renderContent()}</div>
+        <div className="overlay-content-fade">
+            <div className="rec-pill-filter">
+                <button className={`filter-pill ${activeRecTab === 'noticias' ? 'active' : ''}`} onClick={() => setActiveRecTab('noticias')}>Notícias</button>
+                <button className={`filter-pill ${activeRecTab === 'videos' ? 'active' : ''}`} onClick={() => setActiveRecTab('videos')}>Vídeos</button>
+                <button className={`filter-pill ${activeRecTab === 'dicas' ? 'active' : ''}`} onClick={() => setActiveRecTab('dicas')}>Dicas</button>
+            </div>
+            {renderContent()}
         </div>
     );
 };
 
+
+
 export default function InterestOverlay({ interest, profile, onClose }) {
-    
     const isCvInterest = interest === 'Criar Currículo';
-    const [activeView, setActiveView] = useState('inicio');
+    const [activeView, setActiveView] = useState('tasks'); 
+
+    const bgImage = getInterestImage(interest);
 
     const handleNavigate = (view) => {
         setActiveView(view);
@@ -169,47 +169,55 @@ export default function InterestOverlay({ interest, profile, onClose }) {
 
     const renderMainView = () => {
         switch (activeView) {
-            case 'inicio':
-                return <InicioView interest={interest} />;
-            case 'recommendations':
-                return <RecomendacoesView interest={interest} profile={profile} />;
-            case 'tasks':
-                return <Tasks interest={interest} profile={profile} onNavigate={handleNavigate} />;
-            case 'curriculo':
-                return <div className="overlay-view"><CurriculoBuilder profile={profile} isEmbedded={true} /></div>;
-            default:
-                return <InicioView interest={interest} />;
+            case 'inicio': return <InicioView interest={interest} />;
+            case 'recommendations': return <RecomendacoesView interest={interest} profile={profile} />;
+            case 'tasks': return <Tasks interest={interest} profile={profile} onNavigate={handleNavigate} />;
+            case 'curriculo': return <div className="overlay-content-fade"><CurriculoBuilder profile={profile} isEmbedded={true} /></div>;
+            default: return <InicioView interest={interest} />;
         }
     };
 
     return (
         <div className="modal-overlay visible" onClick={onClose}>
-            <div className="interest-overlay-box" onClick={(e) => e.stopPropagation()}>
-                <button onClick={onClose} className="close-btn">&times;</button>
-                <header className="overlay-header"><h2>{interest}</h2></header>
-                <div className="overlay-body">
-                    <aside className="overlay-sidebar">
-                        
-                        {}
-                        <button className={`overlay-nav-button ${activeView === 'inicio' ? 'primary' : 'secondary'}`} onClick={() => setActiveView('inicio')}>
-                            <div className="sidebar-button-content"><span>Início</span><small>Guia sobre o tema</small></div>
-                        </button>
-                        <button className={`overlay-nav-button ${activeView === 'recommendations' ? 'primary' : 'secondary'}`} onClick={() => setActiveView('recommendations')}>
-                            <div className="sidebar-button-content"><span>Recomendações</span><small>Conteúdo dinâmico</small></div>
-                        </button>
-                        <button className={`overlay-nav-button ${activeView === 'tasks' ? 'primary' : 'secondary'}`} onClick={() => setActiveView('tasks')}>
-                            <div className="sidebar-button-content"><span>Plano de Ação</span><small>Suas metas e passos</small></div>
-                        </button>
-                        {isCvInterest && (
-                             <button className={`overlay-nav-button ${activeView === 'curriculo' ? 'primary' : 'secondary'}`} onClick={() => setActiveView('curriculo')}>
-                                <div className="sidebar-button-content"><span>Criar Currículo</span><small>Ferramenta de criação</small></div>
-                            </button>
-                        )}
-                    </aside>
-                    <main className="overlay-main-content">
-                        {renderMainView()}
-                    </main>
+            <div className="modern-overlay-box" onClick={(e) => e.stopPropagation()}>
+                
+                {}
+                <div className="overlay-hero" style={{ backgroundImage: `url(${bgImage})` }}>
+                    <div className="hero-gradient-mask">
+                        <button onClick={onClose} className="hero-close-btn"><i className="fas fa-times"></i></button>
+                        <div className="hero-content">
+                            <div className="hero-badges">
+                                <span className="hero-badge primary">Trilha de Aprendizado</span>
+                            </div>
+                            <h2>{interest}</h2>
+                            <p>Complete as etapas abaixo para dominar este assunto e ganhar seu certificado.</p>
+                        </div>
+                    </div>
                 </div>
+
+                {}
+                <div className="overlay-nav-bar">
+                    <button className={`nav-pill-tab ${activeView === 'tasks' ? 'active' : ''}`} onClick={() => setActiveView('tasks')}>
+                        Plano de Estudo
+                    </button>
+                    <button className={`nav-pill-tab ${activeView === 'inicio' ? 'active' : ''}`} onClick={() => setActiveView('inicio')}>
+                        Resumo
+                    </button>
+                    <button className={`nav-pill-tab ${activeView === 'recommendations' ? 'active' : ''}`} onClick={() => setActiveView('recommendations')}>
+                        Recomendações
+                    </button>
+                    {isCvInterest && (
+                         <button className={`nav-pill-tab ${activeView === 'curriculo' ? 'active' : ''}`} onClick={() => setActiveView('curriculo')}>
+                            Ferramenta
+                        </button>
+                    )}
+                </div>
+
+                {}
+                <main className="overlay-body-scroll">
+                    {renderMainView()}
+                </main>
+
             </div>
         </div>
     );

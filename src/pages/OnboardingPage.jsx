@@ -22,6 +22,10 @@ function getCroppedImgAsDataUrl(image, crop) {
     canvas.width = crop.width;
     canvas.height = crop.height;
     const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     ctx.drawImage(image, crop.x * scaleX, crop.y * scaleY, crop.width * scaleX, crop.height * scaleY, 0, 0, crop.width, crop.height);
     return canvas.toDataURL('image/jpeg');
 }
@@ -39,34 +43,29 @@ export default function OnboardingPage({ user, profile, onProfileUpdate }) {
     
     const [selectedInterests, setSelectedInterests] = useState(['Jovem Aprendiz']);
     
-    const [imagePreview, setImagePreview] = useState(
-        profile?.photoURL || user?.photoURL || '/avatar-padrao.png'
-    );
+    const [imagePreview, setImagePreview] = useState(null);
     
-    // Cropper states
     const [imgSrc, setImgSrc] = useState('');
     const [crop, setCrop] = useState();
     const [completedCrop, setCompletedCrop] = useState(null);
     const [showCropper, setShowCropper] = useState(false);
     const imgRef = useRef(null);
     const numberInputRef = useRef(null);
+    const fileInputRef = useRef(null); 
 
+    
     useEffect(() => {
         if (profile?.photoURL) {
             setImagePreview(profile.photoURL);
         } else if (user?.photoURL) {
             setImagePreview(user.photoURL);
         } else {
-            setImagePreview('/avatar-padrao.png');
+            setImagePreview(null); 
         }
     }, [profile, user]);
 
     const handleLogout = async () => {
-        try {
-            await signOut(auth);
-        } catch (error) {
-            console.error("Erro ao sair:", error);
-        }
+        await signOut(auth);
     };
 
     const handleChange = (e) => {
@@ -94,21 +93,33 @@ export default function OnboardingPage({ user, profile, onProfileUpdate }) {
         if (e.target.files && e.target.files.length > 0) {
             setCrop(undefined);
             const reader = new FileReader();
-            reader.addEventListener('load', () => setImgSrc(reader.result.toString() || ''));
+            reader.addEventListener('load', () => {
+                setImgSrc(reader.result?.toString() || '');
+                setShowCropper(true);
+            });
             reader.readAsDataURL(e.target.files[0]);
-            setShowCropper(true);
+            e.target.value = null;
         }
     };
     
     function onImageLoad(e) {
         const { width, height } = e.currentTarget;
-        setCrop(centerCrop(makeAspectCrop({ unit: '%', width: 90 }, 1, width, height), width, height));
+        const size = Math.min(width, height);
+        setCrop(centerCrop(makeAspectCrop({ unit: 'px', width: size * 0.8 }, 1, width, height), width, height));
     }
 
     const handleCropConfirm = async () => {
         if (completedCrop?.width && completedCrop?.height && imgRef.current) {
-            const dataUrl = getCroppedImgAsDataUrl(imgRef.current, completedCrop);
-            setImagePreview(dataUrl);
+            try {
+                const dataUrl = getCroppedImgAsDataUrl(imgRef.current, completedCrop);
+                setImagePreview(dataUrl);
+                setShowCropper(false);
+            } catch (err) {
+                console.error("Erro ao cortar:", err);
+                alert("Erro ao processar imagem. Tente outra.");
+            }
+        } else {
+            setImagePreview(imgSrc);
             setShowCropper(false);
         }
     };
@@ -116,7 +127,7 @@ export default function OnboardingPage({ user, profile, onProfileUpdate }) {
     const handleNextStep = (e) => {
         e.preventDefault();
         if (!formData.fullName || !formData.dateOfBirth || !formData.cpf || !formData.phone || !formData.language) {
-            alert("Por favor, preencha todos os campos obrigatórios do passo 1.");
+            alert("Por favor, preencha todos os campos obrigatórios.");
             return;
         }
         setStep(2);
@@ -130,13 +141,13 @@ export default function OnboardingPage({ user, profile, onProfileUpdate }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.cep || !formData.street || !formData.number || !formData.neighborhood || !formData.schoolName || !selectedState || !selectedCity) {
-            alert("Por favor, preencha todos os campos de endereço e escolaridade.");
+            alert("Preencha os dados de endereço e escola.");
             return;
         }
 
         const userProfile = {
             ...profile, ...formData,
-            photoURL: imagePreview,
+            photoURL: imagePreview, 
             interests: selectedInterests,
             address: { cep: formData.cep, street: formData.street, number: formData.number, complement: formData.complement, neighborhood: formData.neighborhood, city: selectedCity, state: selectedState },
             education: { schoolName: formData.schoolName },
@@ -149,21 +160,30 @@ export default function OnboardingPage({ user, profile, onProfileUpdate }) {
         onProfileUpdate(userProfile);
     };
 
+    const showImage = imagePreview && imagePreview !== '/avatar-padrao.png';
+
     return (
         <>
             {showCropper && (
-                <div className="modal-overlay visible">
+                <div className="modal-overlay visible" style={{ zIndex: 999999 }}>
                     <div className="modal-box crop-modal">
                         <h3>Ajustar Foto</h3>
-                        <ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)} aspect={1}><img ref={imgRef} src={imgSrc} onLoad={onImageLoad} alt="Cortar" /></ReactCrop>
-                        <div className="crop-buttons"><button onClick={() => setShowCropper(false)} className="nav-button">Cancelar</button><button onClick={handleCropConfirm} className="nav-button primary">Confirmar</button></div>
+                        <div style={{maxHeight: '60vh', overflow: 'auto'}}>
+                            <ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)} aspect={1} circularCrop>
+                                <img ref={imgRef} src={imgSrc} onLoad={onImageLoad} alt="Cortar" style={{maxWidth: '100%'}} />
+                            </ReactCrop>
+                        </div>
+                        <div className="crop-buttons">
+                            <button onClick={() => setShowCropper(false)} className="nav-button secondary">Cancelar</button>
+                            <button onClick={handleCropConfirm} className="nav-button primary">Confirmar</button>
+                        </div>
                     </div>
                 </div>
             )}
 
             <div className="onboarding-wrapper">
                 
-                <div className="onboarding-header-simple" style={{marginTop: '30px'}}> 
+                <div className="onboarding-header-simple"> 
                     <h2>Olá! Boas-vindas ao Manu.</h2>
                     <p>Vamos configurar seu perfil rapidinho.</p>
                 </div>
@@ -173,28 +193,43 @@ export default function OnboardingPage({ user, profile, onProfileUpdate }) {
                     {step === 1 && (
                         <div className="onboarding-step-grid animate-fade-in">
                             
-                            {/* Card 1: Identidade */}
+                            {}
                             <div className="onboarding-card centered-content">
                                 <div className="ob-photo-container">
-                                    {imagePreview && imagePreview !== '/avatar-padrao.png' ? (
-                                        <img src={imagePreview} alt="Perfil" referrerPolicy="no-referrer" />
+                                    
+                                    {}
+                                    {showImage ? (
+                                        <img 
+                                            src={imagePreview} 
+                                            alt="Perfil" 
+                                            referrerPolicy="no-referrer" 
+                                        />
                                     ) : (
-                                        <svg className="ob-default-avatar" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <svg className="ob-default-avatar" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#9ca3af">
                                             <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                                         </svg>
                                     )}
+                                    
                                     <label htmlFor="ob-upload" className="ob-photo-edit-btn">
                                         <i className="fas fa-camera"></i>
                                     </label>
-                                    <input id="ob-upload" type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
+                                    <input 
+                                        id="ob-upload" 
+                                        type="file" 
+                                        accept="image/*" 
+                                        onChange={handleImageChange} 
+                                        style={{ display: 'none' }} 
+                                        ref={fileInputRef}
+                                    />
                                 </div>
+                                
                                 <h4>Identidade</h4>
                                 <div className="form-group w-100"><label>Nome Completo *</label><input name="fullName" type="text" value={formData.fullName} onChange={handleChange} required /></div>
                                 <div className="form-group w-100"><label>Nascimento *</label><input name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleChange} required /></div>
                                 <div className="form-group w-100"><label>CPF *</label><input name="cpf" type="text" placeholder="000.000.000-00" value={formData.cpf} onChange={handleCpfChange} required /></div>
                             </div>
 
-                            {/* Card 2: Contato */}
+                            {}
                             <div className="onboarding-card">
                                 <div className="card-header-icon"><i className="fas fa-address-book"></i> <h4>Contato</h4></div>
                                 <div className="form-group"><label>Telefone *</label><input name="phone" type="text" value={formData.phone} onChange={handlePhoneChange} placeholder="(00) 00000-0000" required /></div>
@@ -208,7 +243,7 @@ export default function OnboardingPage({ user, profile, onProfileUpdate }) {
                                 <p className="ob-hint">Esses dados ajudam a personalizar suas tarefas.</p>
                             </div>
 
-                            {/* Card 3: Interesses */}
+                            {}
                             <div className="onboarding-card">
                                 <div className="card-header-icon"><i className="fas fa-star"></i> <h4>Interesses</h4></div>
                                 <div className="interests-selector-grid compact">

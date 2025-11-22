@@ -9,7 +9,6 @@ export default function Sidebar({ currentPage, onNavigate }) {
 
     const handleNavClick = (e, id) => {
         e.preventDefault();
-        // Verifica a trava global
         if (window.isProfileDirty) {
             window.dispatchEvent(new CustomEvent('triggerProfileNavAlert', { detail: id }));
         } else {

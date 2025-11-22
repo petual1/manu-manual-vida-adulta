@@ -45,32 +45,39 @@ export default function InicioPage({ profile }) {
         <>
             <header className="content-header">
                 <h2>Meu Painel</h2>
-                <p>Olá, {profile?.fullName ? profile.fullName.split(' ')[0] : 'Utilizador'}! Selecione uma área de interesse para ver suas tarefas e recomendações.</p>
+                <p>Olá, {profile?.fullName ? profile.fullName.split(' ')[0] : 'Estudante'}! Escolha uma trilha para começar.</p>
             </header>
+            
             <div className="content-body">
                 {interests.length > 0 ? (
-                    <div className="interests-grid">
+                    <div className="modern-interests-grid">
                         {interests.map(interest => (
-                            <div key={interest} className="interest-card" onClick={() => handleInterestClick(interest)}>
-                                <div className="interest-card-header" style={{ backgroundImage: `url(${getInterestImage(interest)})` }}>
-                                    <div className="card-overlay">
-                                        
-                                        {}
-                                        {}
-                                        <h3>{interest}</h3>
-                                        
-                                        {}
+                            <div key={interest} className="modern-interest-card" onClick={() => handleInterestClick(interest)}>
+                                <div className="card-bg-image" style={{ backgroundImage: `url(${getInterestImage(interest)})` }}></div>
+                                <div className="card-content-overlay">
+                                    <div className="card-badges">
+                                        <span className="badge-pill">Trilha</span>
                                         {calculatedTrophies.includes(interest) && (
-                                            <i className="fas fa-trophy trophy-icon-painel"></i>
+                                            <span className="badge-pill gold"><i className="fas fa-trophy"></i> Concluído</span>
                                         )}
-                                        {}
+                                    </div>
+                                    <div className="card-text">
+                                        <h3>{interest}</h3>
+                                        <p>Toque para ver o plano de ação</p>
+                                    </div>
+                                    <div className="card-arrow">
+                                        <i className="fas fa-arrow-right"></i>
                                     </div>
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : (
-                     <p>Para começar, vá até "Meu Perfil" e selecione as suas áreas de interesse para que possamos gerar o seu plano de ação!</p>
+                     <div className="empty-state-panel">
+                        <i className="fas fa-rocket"></i>
+                        <h3>Vamos começar?</h3>
+                        <p>Vá até "Meu Perfil" e selecione seus interesses para gerar seu plano de carreira.</p>
+                     </div>
                 )}
             </div>
 

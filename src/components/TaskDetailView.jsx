@@ -2,98 +2,72 @@ import React, { useState } from 'react';
 import ConfirmationModal from './ConfirmationModal'; 
 
 export default function TaskDetailView({ task, onConfirmCompletion, onBackClick, onNavigate }) {
-    
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
-    const handleConfirm = () => {
-        onConfirmCompletion(); 
-        setIsConfirmModalOpen(false); 
-    };
-    
-    const renderCompleteButton = () => {
-        if (task.status === 'concluída') {
-             return (
-                <div className="task-complete-banner">
-                    <i className="fas fa-check-circle"></i>
-                    <strong>Tarefa concluída!</strong>
-                </div>
-             );
-        }
-        
-        return (
-            <button 
-                onClick={() => setIsConfirmModalOpen(true)} 
-                className="nav-button success" 
-                style={{ width: '100%', marginTop: '2rem' }}
-            >
-                Marcar como Concluída
-            </button>
-        );
-    };
-
     return (
-        <>
-            <div className="task-detail-view">
-                <button onClick={onBackClick} className="nav-button secondary small" style={{ marginBottom: '1.5rem' }}>
-                    <i className="fas fa-arrow-left" style={{ marginRight: '8px' }}></i>
-                    Voltar para a lista
+        <div className="modern-detail-container">
+            {}
+            <div className="detail-header-actions">
+                <button onClick={onBackClick} className="nav-button secondary small icon-only">
+                    <i className="fas fa-arrow-left"></i>
                 </button>
-                
-                <h3 style={{ fontSize: '1.8rem', marginTop: 0 }}>{task.title}</h3>
-                <p className="category-summary">{task.description}</p>
-                
-                <div className="task-steps-container">
-                    <h4 style={{ fontSize: '1.3rem', borderBottom: '1px solid #eee', paddingBottom: '8px' }}>Passo a Passo:</h4>
-                    
-                    {task.steps && task.steps.length > 0 ? (
-                        task.steps.map((step, index) => (
-                            <div key={index} className="step-item">
-                                <strong >
-                                    {index + 1}. {step.title}
-                                </strong>
-                                
-                                {step.action === 'NAV_CURRICULO' ? (
-                                    <button 
-                                        onClick={() => onNavigate('curriculo')} 
-                                        className="nav-button primary small"
-                                        style={{marginTop: '8px'}}
-                                    >
-                                        {step.content} <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i>
-                                    </button>
-                                ) : step.link ? (
-                                    <>
-                                        <p>{step.content}</p>
-                                        <a 
-                                            href={step.link} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
-                                            className="nav-button primary small"
-                                            style={{marginTop: '8px', textDecoration: 'none'}}
-                                        >
-                                            Acessar Link <i className="fas fa-external-link-alt" style={{marginLeft: '5px'}}></i>
-                                        </a>
-                                    </>
-                                ) : (
-                                    <p>{step.content}</p>
-                                )}
-                            </div>
-                        ))
-                    ) : (
-                        <p>Oops! O passo a passo para esta tarefa ainda não foi detalhado.</p>
-                    )}
-                </div>
-                
-                {renderCompleteButton()}
+                <span className="detail-category-badge">{task.category}</span>
+            </div>
+
+            <div className="detail-hero">
+                <h2>{task.title}</h2>
+                <p>{task.description}</p>
             </div>
             
             {}
+            <div className="detail-steps-list">
+                {task.steps && task.steps.length > 0 ? (
+                    task.steps.map((step, index) => (
+                        <div key={index} className="modern-step-card">
+                            <div className="step-number">{index + 1}</div>
+                            <div className="step-content">
+                                <h5>{step.title}</h5>
+                                <p>{step.content}</p>
+                                
+                                {}
+                                {step.action === 'NAV_CURRICULO' && (
+                                    <button onClick={() => onNavigate('curriculo')} className="nav-button primary small mt-2">
+                                        Ir para Currículo <i className="fas fa-arrow-right"></i>
+                                    </button>
+                                )}
+                                {step.link && (
+                                    <a href={step.link} target="_blank" rel="noopener noreferrer" className="nav-button secondary small mt-2">
+                                        Acessar Link <i className="fas fa-external-link-alt"></i>
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="empty-state-small">Sem passos detalhados.</div>
+                )}
+            </div>
+            
+            {}
+            <div className="detail-footer-action">
+                {task.status === 'concluída' ? (
+                    <div className="completed-banner">
+                        <i className="fas fa-check-circle"></i> Tarefa Concluída
+                    </div>
+                ) : (
+                    <button onClick={() => setIsConfirmModalOpen(true)} className="nav-button success full-width">
+                        Concluir Tarefa <i className="fas fa-check"></i>
+                    </button>
+                )}
+            </div>
+
             <ConfirmationModal
                 isOpen={isConfirmModalOpen}
-                title="Confirmar Conclusão"
-                message={`Tem certeza que deseja marcar a tarefa "${task.title}" como concluída?`}
-                onConfirm={handleConfirm} 
+                title="Concluir Tarefa"
+                message="Você confirma que terminou todos os passos?"
+                onConfirm={() => { onConfirmCompletion(); setIsConfirmModalOpen(false); }}
                 onCancel={() => setIsConfirmModalOpen(false)}
             />
-        </>
+        </div>
     );
 }

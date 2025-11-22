@@ -3,11 +3,8 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 
 export default function Navbar({ user, profile, onLoginClick, onNavigate }) {
-    const [dropdownVisible, setDropdownVisible] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const dropdownRef = useRef(null);
-
-    const handleLogout = () => { signOut(auth); };
+    const mobileMenuRef = useRef(null);
 
     const safeNavigate = (page) => {
         if (window.isProfileDirty) {
@@ -15,78 +12,171 @@ export default function Navbar({ user, profile, onLoginClick, onNavigate }) {
         } else {
             onNavigate(page);
             setIsMobileMenuOpen(false);
-            setDropdownVisible(false);
         }
     };
 
-    const handleEditProfileClick = (e) => {
-        e.preventDefault();
-        document.dispatchEvent(new CustomEvent('setProfileMode', { detail: true }));
-        safeNavigate('perfil');
+    const handleLogout = () => {
+        signOut(auth);
+        setIsMobileMenuOpen(false);
     };
-    
-    const handleMyProfileClick = (e) => {
-        e.preventDefault();
-        document.dispatchEvent(new CustomEvent('setProfileMode', { detail: false }));
+
+    const scrollToFeatures = () => {
+        const section = document.getElementById('features');
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth' });
+            setIsMobileMenuOpen(false);
+        }
+    };
+
+    const handleMobileBarClick = (e) => {
+        if (window.innerWidth <= 992) {
+            if (e.target.closest('.btn-pill-login-mobile')) return;
+            e.preventDefault(); 
+            setIsMobileMenuOpen(!isMobileMenuOpen); 
+        }
+    };
+
+    const handleDesktopLogoClick = (e) => {
+        e.stopPropagation();
+        safeNavigate('inicio');
+    };
+
+    const handleDesktopProfileClick = () => {
         safeNavigate('perfil');
     };
 
     useEffect(() => {
-        if (!dropdownVisible) return; 
         function handleClickOutside(event) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setDropdownVisible(false); 
+            if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target) && !event.target.closest('.expandable-pill')) {
+                setIsMobileMenuOpen(false);
             }
         }
         document.addEventListener('mousedown', handleClickOutside);
         return () => { document.removeEventListener('mousedown', handleClickOutside); };
-    }, [dropdownVisible]); 
+    }, []); 
 
     return (
-        <>
-            <nav className="navbar">
-                <div className="container">
-                    <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(true)}><i className="fas fa-bars"></i></button>
+        <div className="navbar-fixed-wrapper">
+            <div className="navbar-container">
+                
+                {}
+                <nav className={`expandable-pill ${isMobileMenuOpen ? 'expanded-mobile' : ''} ${!user ? 'visitor-mode' : ''}`}>
                     
-                    <div className="nav-brand">
-                        <a href="#" onClick={(e) => { e.preventDefault(); safeNavigate('inicio'); }}>
-                                Manu.
-                        </a>
-                    </div>
-                    
-                    <div className="nav-user-profile">
-                        {!user ? (
-                            <button onClick={onLoginClick} className="nav-button primary">Entrar</button>
-                        ) : (
-                            <div className="user-info" onClick={() => setDropdownVisible(prev => !prev)} role="button" tabIndex="0" ref={dropdownRef}>
-                                <span>{profile?.fullName || user.email}</span>
-                                <img src={profile?.photoURL || '/avatar-padrao.png'} alt="Foto" onError={(e) => { e.target.onerror = null; e.target.src = '/avatar-padrao.png'; }}/>
-                                <div className={`profile-dropdown ${dropdownVisible ? 'visible' : ''}`}>
-                                    <ul>
-                                        <li><a href="#" onClick={handleMyProfileClick}><i className="fas fa-user-circle"></i><span>Meu Perfil</span></a></li>
-                                        <li><a href="#" onClick={handleEditProfileClick}><i className="fas fa-pen"></i><span>Editar Perfil</span></a></li>
-                                        <li><a href="#" onClick={(e) => { e.preventDefault(); safeNavigate('configuracoes'); }}><i className="fas fa-cog"></i><span>Configurações</span></a></li>
-                                        <li><a href="#" onClick={(e) => e.preventDefault()}><i className="fas fa-question-circle"></i><span>Ajuda</span></a></li>
-                                        <li className="separator"><a href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }}><i className="fas fa-sign-out-alt"></i><span>Sair</span></a></li>
-                                    </ul>
-                                </div>
+                    <div className="pill-header" onClick={handleMobileBarClick}>
+                        <div className="pill-left">
+                            <div className="pill-mobile-toggle-icon">
+                                <i className="fas fa-bars"></i>
                             </div>
+                            <a href="#" onClick={handleDesktopLogoClick} className="brand-gradient desktop-logo">
+                                Manu.
+                            </a>
+                        </div>
+
+                        <div className="pill-center">
+                            <span className="brand-gradient mobile-logo">Manu.</span>
+                        </div>
+
+                        <div className="pill-right">
+                            <span className="menu-trigger-text">
+                                Navegar <i className="fas fa-chevron-down"></i>
+                            </span>
+
+                            <div className="mobile-internal-profile">
+                                {user ? (
+                                    <img 
+                                        src={profile?.photoURL || '/avatar-padrao.png'} 
+                                        alt="Perfil" 
+                                        onError={(e) => { e.target.onerror = null; e.target.src = '/avatar-padrao.png'; }}
+                                    />
+                                ) : (
+                                    <button 
+                                        className="btn-pill-login-mobile" 
+                                        onClick={(e) => { e.stopPropagation(); onLoginClick(); }}
+                                        aria-label="Entrar"
+                                    >
+                                        <i className="fas fa-arrow-right"></i>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {}
+                    <div className="pill-mega-content">
+                        <div className="mega-grid">
+                            {user ? (
+                                <>
+                                    <div className="nav-block" onClick={() => safeNavigate('inicio')}>
+                                        <div className="block-icon"><i className="fas fa-home"></i></div>
+                                        <div className="block-info"><h4>Início</h4><p>Painel principal</p></div>
+                                    </div>
+                                    <div className="nav-block" onClick={() => safeNavigate('documentos')}>
+                                        <div className="block-icon"><i className="fas fa-file-alt"></i></div>
+                                        <div className="block-info"><h4>Documentos</h4><p>Carteira digital</p></div>
+                                    </div>
+                                    <div className="nav-block" onClick={() => safeNavigate('configuracoes')}>
+                                        <div className="block-icon"><i className="fas fa-cog"></i></div>
+                                        <div className="block-info"><h4>Configurações</h4><p>Temas e conta</p></div>
+                                    </div>
+                                    <div className="nav-block" onClick={handleLogout}>
+                                        <div className="block-icon"><i className="fas fa-sign-out-alt"></i></div>
+                                        <div className="block-info"><h4>Sair</h4><p>Encerrar sessão</p></div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="nav-block blue" onClick={scrollToFeatures}>
+                                        <div className="block-icon"><i className="fas fa-star"></i></div>
+                                        <div className="block-info"><h4>Ver Funcionalidades</h4><p>Conheça o Manu</p></div>
+                                    </div>
+                                    <div className="nav-block gray" onClick={() => safeNavigate('ajuda')}>
+                                        <div className="block-icon"><i className="fas fa-question-circle"></i></div>
+                                        <div className="block-info"><h4>Ajuda</h4><p>Suporte e dúvidas</p></div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {}
+                    <div className={`mobile-list-menu ${isMobileMenuOpen ? 'open' : ''}`} ref={mobileMenuRef}>
+                        {user ? (
+                            <>
+                                <a href="#" onClick={(e) => { e.stopPropagation(); safeNavigate('inicio'); }}><i className="fas fa-home"></i> Início</a>
+                                <a href="#" onClick={(e) => { e.stopPropagation(); safeNavigate('documentos'); }}><i className="fas fa-folder"></i> Documentos</a>
+                                <a href="#" onClick={(e) => { e.stopPropagation(); safeNavigate('configuracoes'); }}><i className="fas fa-cog"></i> Configurações</a>
+                                <a href="#" onClick={(e) => { e.stopPropagation(); safeNavigate('perfil'); }}><i className="fas fa-user"></i> Meu Perfil</a>
+                                <a href="#" onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-link"><i className="fas fa-sign-out-alt"></i> Sair</a>
+                            </>
+                        ) : (
+                            <>
+                                <a href="#" onClick={(e) => { e.stopPropagation(); scrollToFeatures(); }}><i className="fas fa-star"></i> Ver Funcionalidades</a>
+                                <a href="#" onClick={(e) => { e.stopPropagation(); safeNavigate('ajuda'); }}><i className="fas fa-question-circle"></i> Ajuda</a>
+                                <a href="#" onClick={(e) => { e.stopPropagation(); onLoginClick(); }} style={{ color: 'var(--primary-color)', fontWeight: '700' }}>
+                                    <i className="fas fa-sign-in-alt"></i> Entrar na Conta
+                                </a>
+                            </>
                         )}
                     </div>
+                </nav>
+
+                <div className="outside-actions desktop-only">
+                    {!user ? (
+                        <button onClick={onLoginClick} className="btn-outside-login">
+                            Entrar
+                        </button>
+                    ) : (
+                        <div className="outside-profile" onClick={handleDesktopProfileClick}>
+                            <img 
+                                src={profile?.photoURL || '/avatar-padrao.png'} 
+                                alt="Perfil" 
+                                onError={(e) => { e.target.onerror = null; e.target.src = '/avatar-padrao.png'; }}
+                            />
+                        </div>
+                    )}
                 </div>
-            </nav>
-            
-            <div className={`mobile-sidebar-overlay ${isMobileMenuOpen ? 'visible' : ''}`} onClick={() => setIsMobileMenuOpen(false)}></div>
-            <div className={`mobile-sidebar ${isMobileMenuOpen ? 'visible' : ''}`}>
-                <div className="mobile-sidebar-header"><h3>Navegação</h3><button onClick={() => setIsMobileMenuOpen(false)}>&times;</button></div>
-                <div className="mobile-sidebar-content">
-                    <ul>
-                        <li><a href="#" onClick={(e) => { e.preventDefault(); safeNavigate('inicio'); }}><i className="fas fa-home"></i><span>Meu Painel</span></a></li>
-                        <li><a href="#" onClick={(e) => { e.preventDefault(); safeNavigate('documentos'); }}><i className="fas fa-id-card"></i><span>Documentos</span></a></li>
-                        <li><a href="#" onClick={(e) => { e.preventDefault(); safeNavigate('configuracoes'); }}><i className="fas fa-cog"></i><span>Configurações</span></a></li>
-                    </ul>
-                </div>
+
             </div>
-        </>
+        </div>
     );
 }

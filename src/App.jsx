@@ -4,7 +4,6 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import Preloader from './components/Preloader';
 import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
 import LoginModal from './components/LoginModal';
 import HomePage from './pages/HomePage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -118,7 +117,7 @@ export default function App() {
         return (
             <div id="app-container" className={`page-container ${currentPage === 'inicio' ? 'layout-inicio' : ''}`}>
                 <div className="container app-layout">
-                    <Sidebar currentPage={currentPage} onNavigate={handleNavigation} />
+                    {}
                     <div className="main-content">
                         {renderPage()}
                     </div>

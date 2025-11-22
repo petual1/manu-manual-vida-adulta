@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db, auth, storage } from '../firebase';
 import { toast } from 'sonner';
 import { jsPDF } from "jspdf";
@@ -32,10 +32,9 @@ const DetailsEmptyState = () => (
     <div className="doc-detail-empty-state">
         <i className="fas fa-hand-pointer"></i>
         <p>Selecione um documento</p>
-        <small>Clique em um item da lista para ver os detalhes, baixar ou excluir.</small>
+        <small>Clique em um item da lista para ver os detalhes.</small>
     </div>
 );
-
 
 export default function DocumentosPage() {
     const [documents, setDocuments] = useState([]);
@@ -45,14 +44,19 @@ export default function DocumentosPage() {
     const [selectedDocId, setSelectedDocId] = useState(null); 
     
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    
+    const [isSourceModalOpen, setIsSourceModalOpen] = useState(false); 
+    const [captureMode, setCaptureMode] = useState(null); 
+
     const fileInputRef = useRef(null); 
+    const cameraInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
+
 
     const uploadableDocTypes = [
-        { type: 'RG', icon: 'fa-id-card' },
-        { type: 'CPF', icon: 'fa-id-badge' },
-        { type: 'CNH', icon: 'fa-id-card-alt' },
-        { type: 'CTPS', icon: 'fa-book' }
+        { type: 'RG', icon: 'fa-id-card', label: 'Registro Geral' },
+        { type: 'CPF', icon: 'fa-id-badge', label: 'Cadastro Pessoa Física' },
+        { type: 'CNH', icon: 'fa-id-card-alt', label: 'Carteira de Motorista' },
+        { type: 'CTPS', icon: 'fa-book', label: 'Carteira de Trabalho' }
     ];
 
     useEffect(() => {
@@ -62,25 +66,32 @@ export default function DocumentosPage() {
         const unsubscribe = onSnapshot(q, (snap) => {
             setDocuments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
-        
-        return () => {
-            unsubscribe();
-        };
+        return () => unsubscribe();
     }, []);
 
     const selectedDoc = useMemo(() => {
         return documents.find(doc => doc.id === selectedDocId);
     }, [documents, selectedDocId]);
 
-
-    const handleTypeSelectAndTriggerUpload = (type) => {
+    const handleTypeSelectAndOpenSourceModal = (type) => {
         setDocType(type); 
         setIsUploadModalOpen(false); 
-        fileInputRef.current.click(); 
+        setIsSourceModalOpen(true); 
     };
 
+    const handleSourceSelectAndTriggerUpload = (mode) => {
+        setIsSourceModalOpen(false);
+        setCaptureMode(mode);
+        if (mode === 'camera' && cameraInputRef.current) {
+            cameraInputRef.current.click();
+        } else if (mode === 'gallery' && galleryInputRef.current) {
+            galleryInputRef.current.click();
+        }
+    };
+    
+
     const handleFileSelect = (e) => {
-        if (e.target.files && e.target.files[0]) {
+        if (e.target.files && e.target.files.length > 0) {
             setSelectedFile(e.target.files[0]);
             setIsScannerOpen(true); 
             e.target.value = null; 
@@ -108,7 +119,7 @@ export default function DocumentosPage() {
                 fileUrl: downloadURL, 
                 storagePath: storagePath 
             });
-            toast.success("Documento enviado! A IA está lendo...", { id: toastId });
+            toast.success("Documento salvo com sucesso!", { id: toastId });
         } catch (error) {
             console.error("Erro no upload:", error);
             toast.error("Erro ao salvar documento.", { id: toastId });
@@ -116,6 +127,7 @@ export default function DocumentosPage() {
     };
 
     const downloadPDF = (url, type) => {
+        toast.success("Baixando PDF...", { description: "Seu download começará em instantes." });
         const img = new Image();
         img.crossOrigin = "Anonymous";
         img.src = url;
@@ -129,7 +141,9 @@ export default function DocumentosPage() {
             doc.save(`${type}_digitalizado.pdf`);
         };
     };
+
     const downloadImage = async (url) => {
+        toast.success("Baixando Imagem...", { description: "Aguarde um momento." });
         try {
             const response = await fetch(url);
             const blob = await response.blob();
@@ -144,9 +158,10 @@ export default function DocumentosPage() {
             window.open(url, '_blank');
         }
     };
+
     const handleDelete = async (docToDelete) => {
         if (!docToDelete) return;
-        if (!window.confirm(`Excluir "${docToDelete.type} - ${docToDelete.id}"?`)) return;
+        if (!window.confirm(`Excluir "${docToDelete.type}"?`)) return;
         try {
             if (docToDelete.id === selectedDocId) setSelectedDocId(null);
             await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'documents', docToDelete.id));
@@ -157,30 +172,80 @@ export default function DocumentosPage() {
         }
     };
 
-
     if (isScannerOpen && selectedFile) {
         return <DocumentScanner imageFile={selectedFile} onConfirm={handleScanConfirm} onCancel={() => setIsScannerOpen(false)} />;
     }
 
     return (
         <>
-            {isUploadModalOpen && (
-                <div className="modal-overlay visible">
-                    <div className="modal-box" style={{ maxWidth: '500px', textAlign: 'left' }}>
-                        <button onClick={() => setIsUploadModalOpen(false)} className="close-btn">&times;</button>
-                        <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Adicionar Novo Documento</h3>
+            {}
+            {isSourceModalOpen && (
+                <div className="upload-modal-overlay-styled visible" onClick={() => setIsSourceModalOpen(false)}>
+                    <div className="modal-box upload-modal-styled" onClick={(e) => e.stopPropagation()}>
                         
-                        <p style={{marginTop: 0, marginBottom: '1rem', color: 'var(--secondary-text)'}}>Selecione o tipo de documento que você deseja enviar.</p>
+                        <div className="upload-modal-header">
+                            <h3>{docType} - Escolha a Fonte</h3>
+                            <button onClick={() => setIsSourceModalOpen(false)} className="close-btn-static">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <p className="upload-modal-desc">Você quer tirar uma foto agora ou selecionar um arquivo existente?</p>
+
+                        <div className="doc-upload-grid">
+                            <button 
+                                className="doc-upload-card"
+                                onClick={() => handleSourceSelectAndTriggerUpload('camera')}
+                            >
+                                <div className="upload-icon-circle">
+                                    <i className="fas fa-camera"></i>
+                                </div>
+                                <span className="upload-label">Câmera</span>
+                                <span className="upload-sublabel">Tirar foto agora</span>
+                            </button>
+
+                            <button 
+                                className="doc-upload-card"
+                                onClick={() => handleSourceSelectAndTriggerUpload('gallery')}
+                            >
+                                <div className="upload-icon-circle">
+                                    <i className="fas fa-folder-open"></i>
+                                </div>
+                                <span className="upload-label">Arquivos</span>
+                                <span className="upload-sublabel">Galeria / Arquivos</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
+            {}
+            {isUploadModalOpen && (
+                <div className="upload-modal-overlay-styled visible" onClick={() => setIsUploadModalOpen(false)}>
+                    <div className="modal-box upload-modal-styled" onClick={(e) => e.stopPropagation()}>
+                        
+                        <div className="upload-modal-header">
+                            <h3>Adicionar Documento</h3>
+                            <button onClick={() => setIsUploadModalOpen(false)} className="close-btn-static">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <p className="upload-modal-desc">Escolha qual documento você deseja digitalizar agora.</p>
 
                         <div className="doc-upload-grid">
                             {uploadableDocTypes.map(doc => (
                                 <button 
                                     key={doc.type} 
                                     className="doc-upload-card"
-                                    onClick={() => handleTypeSelectAndTriggerUpload(doc.type)}
+                                    onClick={() => handleTypeSelectAndOpenSourceModal(doc.type)}
                                 >
-                                    <i className={`fas ${doc.icon}`}></i>
-                                    <span>{doc.type}</span>
+                                    <div className="upload-icon-circle">
+                                        <i className={`fas ${doc.icon}`}></i>
+                                    </div>
+                                    <span className="upload-label">{doc.type}</span>
+                                    <span className="upload-sublabel">{doc.label}</span>
                                 </button>
                             ))}
                         </div>
@@ -188,54 +253,42 @@ export default function DocumentosPage() {
                 </div>
             )}
             
+            {}
             <input 
                 type="file" 
                 accept="image/*" 
                 capture="environment" 
                 onChange={handleFileSelect} 
                 style={{ display: 'none' }} 
-                ref={fileInputRef}
+                ref={cameraInputRef}
+            />
+            {}
+            <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleFileSelect} 
+                style={{ display: 'none' }} 
+                ref={galleryInputRef}
             />
 
-            {}
             <header className="content-header">
                 <h2>Documentos</h2>
-                <p>Armazene, digitalize e baixe seus documentos com segurança.</p>
+                <p>Armazene e gerencie seus documentos digitais.</p>
             </header>
 
-            {}
             <div className="profile-card document-page">
-
-                {}
-
                 <div className="doc-layout-grid">
-                
+                    
                     {}
                     <div className="doc-list-view">
-                        
                         <div className="doc-list-view-header">
-                            <h3 className="doc-section-title">Meus Documentos</h3>
-                            
-                            {}
-                            <div className="doc-header-actions">
-                                <button 
-                                    className="nav-button small" 
-                                    onClick={() => setIsUploadModalOpen(true)}
-                                >
-                                    <i className="fas fa-plus" style={{ marginRight: '8px' }}></i>
-                                    Adicionar
-                                </button>
-                            </div>
+                            <h3 className="doc-section-title">Meus Arquivos</h3>
+                            <button className="nav-button primary small" onClick={() => setIsUploadModalOpen(true)}>
+                                <i className="fas fa-plus"></i> Novo
+                            </button>
                         </div>
                         
                         <div className="doc-table-list">
-                            <div className="doc-list-header">
-                                <span>Nome</span>
-                                <span>Tamanho</span>
-                                <span>Adicionado em</span>
-                            </div>
-                            
-                            {}
                             {documents.length > 0 ? documents.map(docItem => (
                                 <div 
                                     key={docItem.id} 
@@ -243,16 +296,22 @@ export default function DocumentosPage() {
                                     onClick={() => setSelectedDocId(docItem.id)}
                                 >
                                     <div className="icon-col">
-                                        <i className={`fas ${getDocIcon(docItem.type)}`}></i>
-                                        {docItem.type}
+                                        <div className="doc-item-info">
+                                            <div className="doc-item-icon">
+                                                <i className={`fas ${getDocIcon(docItem.type)}`}></i>
+                                            </div>
+                                            <span className="doc-type-title">{docItem.type}</span>
+                                            <span className="doc-date-mobile">{formatDate(docItem.createdAt)}</span>
+                                        </div>
                                     </div>
-                                    <span>{formatSize(docItem.fileSize)}</span>
-                                    <span>{formatDate(docItem.createdAt)}</span>
+                                    <span className="doc-size-desktop">{formatSize(docItem.fileSize)}</span>
+                                    <span className="doc-date-desktop">{formatDate(docItem.createdAt)}</span>
                                 </div>
                             )) : (
                                 <div className="doc-list-empty">
-                                    <i className="fas fa-folder-open"></i>
-                                    <p>Nenhum documento salvo</p>
+                                    <div className="empty-icon-circle"><i className="fas fa-folder-open"></i></div>
+                                    <p>Nenhum documento ainda.</p>
+                                    <button className="nav-button secondary small" onClick={() => setIsUploadModalOpen(true)}>Adicionar agora</button>
                                 </div>
                             )}
                         </div>
@@ -262,21 +321,25 @@ export default function DocumentosPage() {
                     <div className="doc-detail-view">
                         {selectedDoc ? (
                             <>
-                                <h3 className="doc-section-title">Detalhes do Arquivo</h3>
+                                <div className="detail-header">
+                                    <h3 className="doc-section-title">Detalhes</h3>
+                                    <button onClick={() => handleDelete(selectedDoc)} className="icon-btn-danger" title="Excluir">
+                                        <i className="fas fa-trash"></i>
+                                    </button>
+                                </div>
+
                                 <div className="doc-details-preview">
                                     <img src={selectedDoc.fileUrl} alt="Preview" />
                                 </div>
+                                
                                 <DocumentData doc={selectedDoc} />
-                                <h4 className="doc-section-title-small">Ações</h4>
+                                
                                 <div className="doc-details-actions">
-                                    <button onClick={() => downloadImage(selectedDoc.fileUrl)} className="nav-button secondary small">
-                                        <i className="fas fa-download"></i> Imagem
+                                    <button onClick={() => downloadImage(selectedDoc.fileUrl)} className="nav-button secondary full">
+                                        <i className="fas fa-image"></i> Baixar Imagem
                                     </button>
-                                    <button onClick={() => downloadPDF(selectedDoc.fileUrl, selectedDoc.type)} className="nav-button secondary small">
-                                        <i className="fas fa-file-pdf"></i> PDF
-                                    </button>
-                                    <button onClick={() => handleDelete(selectedDoc)} className="nav-button danger small">
-                                        <i className="fas fa-trash"></i>
+                                    <button onClick={() => downloadPDF(selectedDoc.fileUrl, selectedDoc.type)} className="nav-button secondary full">
+                                        <i className="fas fa-file-pdf"></i> Baixar PDF
                                     </button>
                                 </div>
                             </>

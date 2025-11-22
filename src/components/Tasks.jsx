@@ -9,10 +9,8 @@ import CompletionRewardModal from './CompletionRewardModal';
 
 const mergeTaskData = (firestoreTasks) => {
     const allKnowledgeTasks = Object.values(taskKnowledgeBase).flatMap(cat => cat.tasks);
-    
     return firestoreTasks.map(task => {
         const knowledgeData = allKnowledgeTasks.find(kbTask => kbTask.id === task.id);
-        
         return {
             ...task, 
             description: knowledgeData?.description || "Descrição em breve...",
@@ -21,64 +19,41 @@ const mergeTaskData = (firestoreTasks) => {
     });
 };
 
-const getPriorityClass = (priority) => {
-    switch (priority) { 
-        case 'Alta': return 'priority-high'; 
-        case 'Média': return 'priority-medium'; 
-        case 'Baixa': return 'priority-low'; 
-        default: return ''; 
-    }
-};
-
-
 export default function Tasks({ interest, profile, onNavigate }) {
     const [firestoreTasks, setFirestoreTasks] = useState([]); 
     const [isLoading, setIsLoading] = useState(true); 
     const [selectedTaskId, setSelectedTaskId] = useState(null);
     const [activeTab, setActiveTab] = useState('pendentes'); 
-    
     const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
     
     useEffect(() => {
         const currentUser = auth.currentUser;
-        if (!currentUser) return;
-        runTaskEngine(profile, currentUser.uid); 
+        if (currentUser) runTaskEngine(profile, currentUser.uid); 
     }, [profile]); 
 
     useEffect(() => {
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            setIsLoading(false); 
-            return;
-        }
+        if (!currentUser) { setIsLoading(false); return; }
 
         setIsLoading(true); 
         const tasksRef = collection(db, 'users', currentUser.uid, 'tasks');
         const q = query(tasksRef, where("category", "==", interest));
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const userTasks = snapshot.docs.map(doc => ({
-                ...doc.data(),
-                docId: doc.id 
-            }));
+            const userTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
             setFirestoreTasks(userTasks);
             setIsLoading(false); 
-        }, (error) => {
-            console.error("Erro ao buscar tarefas:", error);
-            setIsLoading(false); 
         });
-
         return () => unsubscribe();
     }, [interest]); 
 
     const allTasks = useMemo(() => {
-        const merged = mergeTaskData(firestoreTasks, taskKnowledgeBase);
+        const merged = mergeTaskData(firestoreTasks);
         const completedIds = new Set(merged.filter(t => t.status === 'concluída').map(t => t.id));
 
         return merged.map(task => {
             const knowledgeTask = taskKnowledgeBase[task.category]?.tasks.find(t => t.id === task.id);
             const dependencies = knowledgeTask?.dependencies || [];
-            
             let isLocked = false;
             let unlockMessage = "";
 
@@ -87,9 +62,7 @@ export default function Tasks({ interest, profile, onNavigate }) {
                     if (!completedIds.has(depId)) {
                         isLocked = true;
                         const depTask = Object.values(taskKnowledgeBase).flatMap(cat => cat.tasks).find(t => t.id === depId);
-                        if (depTask) {
-                            unlockMessage = `Complete a tarefa: "${depTask.title}" para desbloquear.`;
-                        }
+                        if (depTask) unlockMessage = `Complete "${depTask.title}" primeiro.`;
                         break;
                     }
                 }
@@ -101,187 +74,121 @@ export default function Tasks({ interest, profile, onNavigate }) {
     const { pendingTasks, completedTasks } = useMemo(() => {
         const _pending = allTasks
             .filter(task => task.status === 'pendente')
-            .sort((a, b) => {
-                if (a.isLocked && !b.isLocked) return 1;
-                if (!a.isLocked && b.isLocked) return -1;
-                return a.title.localeCompare(b.title);
-            });
+            .sort((a, b) => (a.isLocked === b.isLocked) ? a.title.localeCompare(b.title) : a.isLocked ? 1 : -1);
         const _completed = allTasks
             .filter(task => task.status === 'concluída')
             .sort((a, b) => a.title.localeCompare(b.title));
-        
         return { pendingTasks: _pending, completedTasks: _completed }; 
     }, [allTasks]);
 
-    const currentSelectedTask = useMemo(() => {
-        return allTasks.find(t => t.docId === selectedTaskId);
-    }, [selectedTaskId, allTasks]);
-
-    
+    const currentSelectedTask = useMemo(() => allTasks.find(t => t.docId === selectedTaskId), [selectedTaskId, allTasks]);
     const progress = allTasks.length > 0 ? (completedTasks.length / allTasks.length) * 100 : 0;
     
     const hasShownRewardRef = useRef(false);
-
     useEffect(() => {
-        if (progress === 100 && allTasks.length > 0) {
-            
-            const userTrophies = profile?.trophies || [];
-            
-            if (!userTrophies.includes(interest) && !hasShownRewardRef.current) {
-                
-                hasShownRewardRef.current = true;
-                
-                setIsRewardModalOpen(true); 
-                
-                const awardTrophy = async () => {
-                    const currentUser = auth.currentUser;
-                    if (!currentUser) return;
-                    
-                    const userRef = doc(db, 'users', currentUser.uid);
-                    await updateDoc(userRef, {
-                        trophies: arrayUnion(interest) 
-                    });
-                };
-                awardTrophy();
-            }
+        if (progress === 100 && allTasks.length > 0 && !profile?.trophies?.includes(interest) && !hasShownRewardRef.current) {
+            hasShownRewardRef.current = true;
+            setIsRewardModalOpen(true); 
+            const awardTrophy = async () => {
+                const currentUser = auth.currentUser;
+                if (currentUser) await updateDoc(doc(db, 'users', currentUser.uid), { trophies: arrayUnion(interest) });
+            };
+            awardTrophy();
         }
-
-        if (progress < 100) {
-            hasShownRewardRef.current = false;
-        }
-        
     }, [progress, allTasks, interest, profile]); 
 
-
     const handleToggleTaskStatus = async () => {
-        if (!currentSelectedTask) return; 
-
-        const currentUser = auth.currentUser;
-        if (!currentUser) return;
-        
-        const taskRef = doc(db, 'users', currentUser.uid, 'tasks', currentSelectedTask.docId);
-        
+        if (!currentSelectedTask || !auth.currentUser) return; 
         try {
-            await updateDoc(taskRef, { status: 'concluída' });
-            
-            toast.success(`Tarefa Concluída: "${currentSelectedTask.title}"`, {
-                description: 'Fique de olho, novas tarefas podem ter sido desbloqueadas!',
-            });
-            
-            await runTaskEngine(profile, currentUser.uid);
-            
-            
+            await updateDoc(doc(db, 'users', auth.currentUser.uid, 'tasks', currentSelectedTask.docId), { status: 'concluída' });
+            toast.success("Tarefa Concluída!");
+            await runTaskEngine(profile, auth.currentUser.uid);
         } catch (error) {
-            console.error("Erro ao atualizar a tarefa:", error);
-            toast.error("Oops! Não foi possível salvar sua conclusão.");
+            toast.error("Erro ao salvar.");
         }
     };
 
     const handleTaskClick = (task) => {
         if (task.isLocked) {
-             toast.info(task.unlockMessage, {
-                icon: <i className="fas fa-lock" style={{marginRight: '10px', color: '#6c757d'}}></i>,
-             });
-            return; 
+             toast("Tarefa Bloqueada", { description: task.unlockMessage, icon: <i className="fas fa-lock"></i> });
+             return;
         }
         setSelectedTaskId(task.docId);
     };
-    
-    const handleBackClick = () => {
-        setSelectedTaskId(null);
-    };
-    
-    const handleConfirmCompletion = () => {
-        handleToggleTaskStatus(); 
-        handleBackClick(); 
-    };
 
-
-    if (isLoading) {
-        return <div className="spinner-container"><div className="spinner"></div></div>;
-    }
+    if (isLoading) return <div className="spinner-container"><div className="spinner"></div></div>;
 
     if (selectedTaskId && currentSelectedTask) {
         return (
-            <TaskDetailView 
-                task={currentSelectedTask} 
-                onBackClick={handleBackClick}
-                onConfirmCompletion={handleConfirmCompletion} 
-                onNavigate={onNavigate} 
-            />
+            <div className="overlay-content-fade">
+                <TaskDetailView 
+                    task={currentSelectedTask} 
+                    onBackClick={() => setSelectedTaskId(null)}
+                    onConfirmCompletion={() => { handleToggleTaskStatus(); setSelectedTaskId(null); }} 
+                    onNavigate={onNavigate} 
+                />
+            </div>
         );
     }
 
     const tasksToDisplay = activeTab === 'pendentes' ? pendingTasks : completedTasks;
 
     return (
-        <>
-            <div className="overlay-view">
-                <div className="task-view-header">
-                    <h3>Plano de Ação</h3>
-                    <div className="progress-bar-container">
-                        <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-                    </div>
-                    <span>{Math.round(progress)}% Concluído</span>
+        <div className="overlay-content-fade">
+            {}
+            <div className="modern-task-header">
+                <div className="header-info">
+                    <h3>Seu Progresso</h3>
+                    <span className="progress-percent">{Math.round(progress)}%</span>
                 </div>
-                
-                <div className="task-tabs">
-                    <button 
-                        className={`tab-btn ${activeTab === 'pendentes' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('pendentes')}
-                    >
-                        Pendentes ({pendingTasks.length})
-                    </button>
-                    <button 
-                        className={`tab-btn ${activeTab === 'concluidas' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('concluidas')}
-                    >
-                        Concluídas ({completedTasks.length})
-                    </button>
-                </div>
-                
-                <div className="checklist">
-                    {tasksToDisplay.length > 0 ? tasksToDisplay.map(task => (
-                        <button 
-                            key={task.docId} 
-                            className={`checklist-item ${getPriorityClass(task.priority)} ${task.isLocked ? 'locked' : ''}`}
-                            onClick={() => handleTaskClick(task)}
-                            disabled={task.isLocked && task.status !== 'concluída'} 
-                        >
-                            <div className="checklist-main">
-                                <input 
-                                    type="checkbox" 
-                                    id={`task-list-${task.docId}`}
-                                    checked={task.status === 'concluída'} 
-                                    readOnly 
-                                    style={{ pointerEvents: 'none' }}
-                                />
-                                <label htmlFor={`task-list-${task.docId}`} style={{ cursor: task.isLocked ? 'not-allowed' : 'pointer' }}>
-                                    {task.title}
-                                </label>
-                            </div>
-                            {task.isLocked && (
-                                <small className="unlock-message">
-                                    <i className="fas fa-lock" style={{marginRight: '5px'}}></i>
-                                    {task.unlockMessage}
-                                </small>
-                            )}
-                        </button>
-                    )) : (
-                        <p style={{textAlign: 'center', color: 'var(--secondary-text)', marginTop: '2rem'}}>
-                            {activeTab === 'pendentes' 
-                                ? 'Nenhuma tarefa pendente. Ótimo trabalho!' 
-                                : 'Nenhuma tarefa foi concluída ainda.'}
-                        </p>
-                    )}
+                <div className="modern-progress-track">
+                    <div className="modern-progress-fill" style={{ width: `${progress}%` }}></div>
                 </div>
             </div>
+            
+            {}
+            <div className="modern-tabs-row">
+                <button className={`modern-tab ${activeTab === 'pendentes' ? 'active' : ''}`} onClick={() => setActiveTab('pendentes')}>
+                    A Fazer ({pendingTasks.length})
+                </button>
+                <button className={`modern-tab ${activeTab === 'concluidas' ? 'active' : ''}`} onClick={() => setActiveTab('concluidas')}>
+                    Concluídas ({completedTasks.length})
+                </button>
+            </div>
+            
+            {}
+            <div className="tasks-stack-grid">
+                {tasksToDisplay.length > 0 ? tasksToDisplay.map(task => (
+                    <div 
+                        key={task.docId} 
+                        className={`modern-task-card ${task.priority.toLowerCase()} ${task.isLocked ? 'locked' : ''}`}
+                        onClick={() => handleTaskClick(task)}
+                    >
+                        <div className="task-card-icon">
+                            {task.isLocked ? <i className="fas fa-lock"></i> : 
+                             task.status === 'concluída' ? <i className="fas fa-check-circle"></i> : 
+                             <i className="fas fa-circle"></i>}
+                        </div>
+                        
+                        <div className="task-card-content">
+                            <h4>{task.title}</h4>
+                            {task.isLocked && <p className="lock-msg">{task.unlockMessage}</p>}
+                            {!task.isLocked && <p className="task-desc-preview">{task.description.substring(0, 60)}...</p>}
+                        </div>
+                        
+                        <div className="task-card-arrow">
+                            <i className="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+                )) : (
+                    <div className="empty-state-small">
+                        <i className={`fas ${activeTab === 'pendentes' ? 'fa-check-double' : 'fa-clipboard-list'}`}></i>
+                        <p>{activeTab === 'pendentes' ? 'Tudo feito por aqui!' : 'Nenhuma tarefa concluída ainda.'}</p>
+                    </div>
+                )}
+            </div>
 
-            <CompletionRewardModal 
-                isOpen={isRewardModalOpen}
-                onClose={() => setIsRewardModalOpen(false)}
-                interestName={interest}
-            />
-        </>
+            <CompletionRewardModal isOpen={isRewardModalOpen} onClose={() => setIsRewardModalOpen(false)} interestName={interest} />
+        </div>
     );
 }
