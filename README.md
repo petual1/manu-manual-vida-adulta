@@ -1,6 +1,6 @@
 # Manu --- Manual da Vida Adulta
 
-Projeto desenvolvido na disciplina **Project Lab** do curso de **Ciência
+Projeto desenvolvido para o curso de **Ciência
 da Computação** do **Centro Universitário UNIMA (Afya)**.
 
 ![Status](http://img.shields.io/static/v1?label=STATUS&message=EM%20DESENVOLVIMENTO&color=GREEN&style=for-the-badge)
