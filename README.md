@@ -116,14 +116,7 @@ VITE_FIREBASE_APP_ID=seu_app_id
 
 ## Autores
 
-Equipe de Desenvolvimento --- Project Lab:
+Equipe de Desenvolvimento:
 
 -   **Daniel Alexandre Pereira de Abreu**\
 -   **Gabriel Da Costa Vangasse**\
--   **Ivo Lucas Araújo Viveiros De Lima**\
--   **Jordana Gabriela Ferreira Costa**\
--   **José Gabriel Bonfim Severo Amorim**
-
-### Orientação
-
-**Prof. Icaro Santos Ferreira**
